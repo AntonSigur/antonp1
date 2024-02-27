@@ -88,6 +88,9 @@ undir /api er hægt að sækja payload yfir vefþjón, sem lítur svona út:
     ]
 }
 ```
+# OTA Update
+Hægt er að tengjast með browser undir /udpate (user:admin pass:p1anton) til að uppfæra firmware með nýrri útgáfum (Over The Air)
+
 
 # Verkefni í vinnslu
 Þetta er verkefni í vinnslu sem og þessi documentation. Endilega hjálpið til með góðum viðbótum.
