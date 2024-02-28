@@ -1,10 +1,10 @@
-# AntonP1 - DMSR Parser kóði
-"Dynamic" OBIS Code reader and parser, optimized for safe memory usage in ESP, no memory fragmentation.
+# AntonP1 - DSMR Parser kóði
+"Dynamic" P1 port OBIS Code reader and parser, optimized for safe memory usage in ESP, no memory fragmentation.
 
-DMSR parser "Slimme-Meter"
+DSMR parser "Slimme-Meter"
 
 Aðal hugmyndin er að byggja góðan parser, sem getur lesið P1 Port á snjallmælum frá Veitum en er nægilega flex til að geta
-lesið alla mæla sem fylgja DMSR staðlinum, alla OBIS kóða sem mælirinn skilar.
+lesið alla mæla sem fylgja DSMR staðlinum, alla OBIS kóða sem mælirinn skilar.
 
 Nýta kóðan til að búa til frístandandi vefþjón, senda sem MQTT skeyti áfram.
 
