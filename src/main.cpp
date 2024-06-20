@@ -17,7 +17,7 @@
 // Board especific libraries
 #if defined ESP8266 || defined ESP32
 // Use mDNS ? (comment this do disable it)
-#define USE_MDNS 1
+// #define USE_MDNS 1
 // Arduino OTA (uncomment this to enable)
 //#define USE_ARDUINO_OTA true
 #else
@@ -40,11 +40,10 @@
 #include "ESPmDNS.h"
 #endif
 #endif // ESP
-#include "RemoteDebug.h"    
-RemoteDebug Debug;
 #include "antonp1.h"
 #include "wifisecrets.h"
 #include <ArduinoJson.h>
+#include <ESP8266HTTPClient.h>
 
 
 // Predefined static config
@@ -60,6 +59,7 @@ static const char* password = WIFI_PASSWORD;
 
 AsyncWebServer server(80);
 long lastMillis = 0;
+long lastPostMillis = 0;
 
 // Memory allocated for the sample's variables and structures.
 static WiFiClientSecure wifi_client;
@@ -67,19 +67,20 @@ static WiFiClientSecure wifi_client;
 // Auxiliary functions
 static void connectToWiFi()
 {
-  debugI("Connecting to WIFI SSID %s",ssid);
-  WiFi.mode(WIFI_STA);
+  WiFi.mode(WIFI_AP_STA);
+  
   WiFi.begin(ssid, password);
   while (WiFi.status() != WL_CONNECTED)
   {
     delay(500);
-    debugI("connecting...");
   }
+
+  WiFi.softAP("HANANTON", "0123456789");
 }
 
 static void initializeTime()
 {
-  debugI("Setting time using SNTP");
+
 
   configTime(-5 * 3600, 0, NTP_SERVERS);
   time_t now = time(NULL);
@@ -88,7 +89,36 @@ static void initializeTime()
     delay(500);
     now = time(NULL);
   }
-  debugI("done!");
+
+}
+
+const char* proxyUrl = "http://ns.ant.is/p1";
+
+bool postData(const char* data) {
+    WiFiClient client;
+    HTTPClient http;
+
+    // Get WiFi details
+    String macAddress = WiFi.macAddress();
+    String localIP = WiFi.localIP().toString();
+    int32_t rssi = WiFi.RSSI();
+    char* isvalid = "Yes";
+    if (P1valid == false)
+      isvalid = "No";
+
+    http.begin(client, proxyUrl);
+
+    // Add headers
+    http.addHeader("Content-Type", "text/plain");  // Or any other content type you need
+    http.addHeader("p1control-wifimac", macAddress);
+    http.addHeader("p1control-isvalid", isvalid);
+    http.addHeader("p1control-wifiip", localIP);
+    http.addHeader("p1control-wifisignal", String(rssi));
+
+    int httpResponseCode = http.POST(data);
+
+    http.end();
+    return httpResponseCode > 0;
 }
 
 static char* getCurrentLocalTimeString()
@@ -98,6 +128,57 @@ static char* getCurrentLocalTimeString()
 }
 
 static uint32_t getSecondsSinceEpoch() { return (uint32_t)time(NULL); }
+
+#include <ESP8266WiFi.h>
+
+char* printNetworkInfo() {
+    static char info[512];
+    
+    // Get the connected network's SSID
+    String ssid = WiFi.SSID();
+    
+    // Get the RSSI (signal strength)
+    int32_t rssi = WiFi.RSSI();
+    
+    // Get the STA (Station) IP address
+    IPAddress staIP = WiFi.localIP();
+    
+    // Get the AP (Access Point) IP address
+    IPAddress apIP = WiFi.softAPIP();
+    
+    // Get the MAC addresses
+    String staMAC = WiFi.macAddress();
+    String apMAC = WiFi.softAPmacAddress();
+    
+    // Get the subnet mask
+    IPAddress subnetMask = WiFi.subnetMask();
+    
+    // Get the gateway IP
+    IPAddress gatewayIP = WiFi.gatewayIP();
+    
+    // Format all information into the info char array
+    snprintf(info, sizeof(info), 
+        "SSID: %s\n"
+        "Signal strength (RSSI): %d dBm\n"
+        "STA IP Address: %s\n"
+        "AP IP Address: %s\n"
+        "STA MAC Address: %s\n"
+        "AP MAC Address: %s\n"
+        "Subnet Mask: %s\n"
+        "Gateway IP: %s\n",
+        ssid.c_str(),
+        rssi,
+        staIP.toString().c_str(),
+        apIP.toString().c_str(),
+        staMAC.c_str(),
+        apMAC.c_str(),
+        subnetMask.toString().c_str(),
+        gatewayIP.toString().c_str()
+    );
+    
+    return info;
+}
+
 
 
 char* buildJSONPayload() {
@@ -152,6 +233,11 @@ void webserverSetup()
       request->send(200, "text/html", "Hello, welcome to P1 Module.<br /><a href='/api'>API Payload</a>");
   });
 
+    //Send OBIS payload as JSON
+  server.on("/network", HTTP_GET, [](AsyncWebServerRequest *request){
+      request->send(200, "application/json", printNetworkInfo());
+  });
+
   //Send OBIS payload as JSON
   server.on("/api", HTTP_GET, [](AsyncWebServerRequest *request){
       request->send(200, "application/json", buildJSONPayload());
@@ -176,13 +262,7 @@ void setup()
     }
     MDNS.addService("telnet", "tcp", 23);
 #endif
-	// Initialize RemoteDebug
-	Debug.begin(HOST_NAME); // Initialize the WiFi server
-  Debug.setResetCmdEnabled(true); // Enable the reset command
-	Debug.showProfiler(true); // Profiler (Good to measure times, to optimize codes)
-	Debug.showColors(true); // Colors
-  Debug.showDebugLevel(true);
-  // End off RemoteDebug setup
+
 
   webserverSetup();
 
@@ -198,6 +278,10 @@ void loop()
     lastMillis = millis();
   }
 
-  debugHandle();
+  if (millis() > lastPostMillis + 120000)
+  {  
+    postData(P1buffer);
+    lastPostMillis = millis();
+  }
   delay(10);
 }

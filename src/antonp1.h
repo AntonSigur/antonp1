@@ -9,9 +9,8 @@
 
  */
 #include <Arduino.h>
-#include "RemoteDebug.h"
 #define P1_REQUEST_PIN D5
-#define P1_MAXBUFFER 750 
+#define P1_MAXBUFFER 1750 
 #define P1_READ_INTERVAL 2000 //Refresh P1 data every X seconds
 
 char P1buffer[P1_MAXBUFFER];
@@ -391,13 +390,11 @@ void parseItems()
         else //We only parse out actual OBIS codes, not other lines.
         {
           failParseLine = true;
-          //debugE("The device identity was not parsed out of line, %i - as %i",linepos,x);
         }
       }
       if (linepos == 1 && P1buffer[i] != '-')
       {
         failParseLine = true;
-        //debugE("The device identity error , no dash '-',%c",P1buffer[i]);
       }
 
       //Parse OBIS code info
@@ -411,15 +408,13 @@ void parseItems()
         while (P1buffer[i] != '(') //Until we are at the end of OBIS code declaration in message
         {
           if (obisPos > 2) { //Obis codes are only three integers. Something is not parsing correctly.
-            debugE("To long OBIS code?? should only have 3 digits: %i.%i.%i",parsingobis[2],parsingobis[3],parsingobis[4]);
             failParseLine = true;
             break;
           }
           isValid = true;
           int y = getInteger(P1buffer[i], isValid);
           while (P1buffer[i] != '.' && isValid)
-          {
-            //debugI("Parsed Obis Integer: %i from char %c",y,P1buffer[i]);     
+          {    
             if (isValid) 
             {
               parsingobis[obisPos+2] *= 10;
@@ -427,7 +422,6 @@ void parseItems()
             } 
             else
             {
-              debugE("Not valid integer value in %i",i);
               failParseLine = true;
               break;
             }
@@ -444,12 +438,11 @@ void parseItems()
       else if(linepos == 3) 
       {
         failParseLine = true;
-        debugE("char no 3 is not a colon ':'");
       }
 
       if (P1buffer[i] == '(' && (parsingobis[2] + parsingobis[3] + parsingobis[4] > 0)) //Value for OBIS code parsing starts and we have a valid OBIS
       {
-        //debugI("Found value start (bracket)");
+
         i++; //Jump over the bracket '('
         int le = 0;
         int dotPos = -1;
@@ -498,7 +491,6 @@ void parseItems()
             {
               parseStrArrIntoItem(P1buffer,i,pos,parsingItem); //sets the string value into item and handles memory&fragmentation
             }
-            //debugI("found a value of %f - valid: %i",parsingItem->dValue,isValid);
           }
           else 
           {
@@ -544,8 +536,7 @@ void parseItems()
     //Detecting a new line, now, find next line and reset get ready for parsing.
     if (P1buffer[i] == '\r') 
     {
-      //debugI("Detecting new line at buffer %i -- %c%c",i,P1buffer[i],P1buffer[i+1]);
-      //debugHandle();
+
       if (i+1<P1length)
       {
         if (P1buffer[i+1] == '\n')
@@ -627,6 +618,7 @@ boolean P1_ReadFromSerial(char *b,int *l)
         { 
           message_end=true;
           P1valid = true;
+          buffer[t++] = '\0';  // Null-terminate the string here    
           break;
         } 
       }
@@ -660,36 +652,7 @@ int getObisItemCount()
   return c;
 }
 
-void printObisDebug()
-{
-  OBISItem* i = p1parsed->items;
-  while (i != nullptr)
-  {
-    if (i->unit != nullptr) {
-      if (i->type == OBISItem::DOUBLE)
-      {
-        debugI("OBIS: %i-%i:%i.%i.%i Double %f %s",i->obis[0],i->obis[1],i->obis[2],i->obis[3],i->obis[4],i->value.dValue,i->unit->unitstr);
-      }
-      else if (i->type == OBISItem::INT32)
-      {
-        debugI("OBIS: %i-%i:%i.%i.%i INT32 %i %s",i->obis[0],i->obis[1],i->obis[2],i->obis[3],i->obis[4],i->value.i32Value,i->unit->unitstr);
-      }
-      else if (i->type == OBISItem::INT64)
-      {
-        debugI("OBIS: %i-%i:%i.%i.%i INT64 %i %s",i->obis[0],i->obis[1],i->obis[2],i->obis[3],i->obis[4],i->value.i64Value,i->unit->unitstr);      
-      }
-      else if (i->type == OBISItem::NONE) 
-      {
-        debugI("OBIS: %i-%i:%i.%i.%i NONE %s",i->obis[0],i->obis[1],i->obis[2],i->obis[3],i->obis[4],i->unit->unitstr);            
-      }
-      else if (i->type == OBISItem::CHARARR) 
-      {
-        debugI("OBIS: %i-%i:%i.%i.%i STR %s %s",i->obis[0],i->obis[1],i->obis[2],i->obis[3],i->obis[4],i->value.stringValue,i->unit->unitstr);            
-      }    
-    }
-    i = i->next;
-  }
-}
+
 
 void p1ReadAndParseNow()
 {
@@ -702,12 +665,11 @@ void p1loop()
 {
   if (millis() > P1NextMillis) //Should we refresh P1 data?
   {
-     debugI("Reading data from serial P1 port");
+
      P1_ReadFromSerial(P1buffer,&P1length);       // load P1 buffer in Global Memory variable
-     debugI("Parsing items...");
+
      parseItems();
-     debugI("Length of OBIS Item list %i", getObisItemCount());
-     printObisDebug();
+
      P1NextMillis = millis() + P1_READ_INTERVAL;
   }    
 }
