@@ -67,15 +67,26 @@ static WiFiClientSecure wifi_client;
 // Auxiliary functions
 static void connectToWiFi()
 {
+    String macAddress = WiFi.macAddress();
+    // Format the MAC address to remove colons and use uppercase letters
+    macAddress.replace(":", "");
+    macAddress.toUpperCase();
+    // Create the SSID using the formatted MAC address
+    String softSsid = "HANANTON-" + macAddress;
+
   WiFi.mode(WIFI_AP_STA);
   
   WiFi.begin(ssid, password);
-  while (WiFi.status() != WL_CONNECTED)
+
+  //Try connecting to AP WIFI for 1 minute
+  int wifiConnectRetries = 0;
+  while (WiFi.status() != WL_CONNECTED and wifiConnectRetries < 120)
   {
     delay(500);
+    wifiConnectRetries++;
   }
 
-  WiFi.softAP("HANANTON", "0123456789");
+  WiFi.softAP(softSsid.c_str(), "0123456789");
 }
 
 static void initializeTime()
